@@ -8,7 +8,7 @@ Heavily commented (mostly for my personal reference)
 ## Functionality
 
  - Can make various GET, POST, DELETE requests to the Binance API (mainnet and testnet)
-  - Placing, Checking, Deleting Orders.
-  - Retrieving account information.
-  - Retrieving market information.
+   - Placing, Checking, Deleting Orders.
+   - Retrieving account information.
+   - Retrieving market information.
  - Can subscribe to websocket API and produce live tickers
