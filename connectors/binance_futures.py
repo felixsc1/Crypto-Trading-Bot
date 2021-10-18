@@ -3,6 +3,7 @@ import logging
 import requests
 import pprint
 import time
+# import typing #used python3.9 notation instead
 
 import hmac
 import hashlib
@@ -12,6 +13,9 @@ import websocket  #pip install "websocket-client"
 import json
 
 import threading
+
+from models import *  # own data types
+
 
 #%%
 logger = logging.getLogger()
@@ -39,7 +43,7 @@ logger = logging.getLogger()
 
 
 class BinanceFuturesClient:
-    def __init__(self, public_key, secret_key, testnet):
+    def __init__(self, public_key: str, secret_key: str, testnet: bool):
         if testnet:
             self.base_url = "https://testnet.binancefuture.com"
             self.wss_url = "wss://stream.binancefuture.com/ws"
@@ -51,6 +55,9 @@ class BinanceFuturesClient:
         self.secret_key = secret_key
 
         self.headers = {'X-MBX-APIKEY': self.public_key}
+
+        self.contracts = self.get_contracts()
+        self.balances = self.get_balances()
 
         self.prices = dict()
 
@@ -64,11 +71,11 @@ class BinanceFuturesClient:
 
         logger.info("Binance Futures Client sucessfully initialized")
 
-    def generate_signature(self, data):
+    def generate_signature(self, data: dict) -> str: #check if generic dict works, maybe "typing.Dict" needed that allows more complex variables in it
         #encode() turns strings into byte-objects (as expected by hmac)
         return hmac.new(self.secret_key.encode(), urlencode(data).encode(), hashlib.sha256).hexdigest()
 
-    def make_request(self, method, endpoint, data):
+    def make_request(self, method: str, endpoint: str, data: dict):
         if method == "GET":
             response = requests.get(self.base_url + endpoint, params=data, headers=self.headers)
         elif method == "POST":
@@ -85,19 +92,20 @@ class BinanceFuturesClient:
                          {response.json()} (error code {response.status_code}''')
             return None
 
-    def get_contracts(self):
-        exchange_info = self.make_request("GET", "/fapi/v1/exchangeInfo", None)
+    def get_contracts(self) -> dict[str, Contract]:
+        exchange_info = self.make_request("GET", "/fapi/v1/exchangeInfo", dict())  # we send dict() empty dict, instead of None, because make_request() type hinting expects dict now.
 
         contracts = dict()
         if exchange_info is not None:
             for contract_data in exchange_info['symbols']:
-                contracts[contract_data['pair']] = contract_data
+                # contracts[contract_data['pair']] = contract_data  # would return a dictionary type
+                contracts[contract_data['pair']] = Contract(contract_data) # see models.py
 
         return contracts
 
-    def get_historical_candles(self, symbol, interval):
+    def get_historical_candles(self, contract: Contract, interval: str) -> list:
         data = dict()
-        data['symbol'] = symbol
+        data['symbol'] = contract.symbol
         data['interval'] = interval
         data['limit'] = 1000
 
@@ -109,31 +117,33 @@ class BinanceFuturesClient:
             for c in raw_candles:
                 # by checking the documentation https://binance-docs.github.io/apidocs/futures/en/#kline-candlestick-data
                 # one sees example response: a list of values open time, open, high, low, close, volume
-                candles.append([c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])])
+                # candles.append([c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])])
+                # replaced in Lesson 15:
+                candles.append(Candle(c))
     
         return candles
     
-    def get_bid_ask(self, symbol):
+    def get_bid_ask(self, contract: Contract) -> dict[str, float]:
         # if we had multiple parameters: URL?symbol=XX&param1=XY&param2=ZZ
         # but to make life easier, request method can take argument "parameters" as dict.
         #"https://testnet.binancefuture.com/fapi/v1/ticker/bookTicker?symbol=BTCUSDT&key"
         data = dict()
-        data['symbol'] = symbol
+        data['symbol'] = contract.symbol
         ob_data = self.make_request("GET", "/fapi/v1/ticker/bookTicker", data)
 
         if ob_data is not None:
             bid_data = float(ob_data['bidPrice'])
             ask_data = float(ob_data['askPrice'])
-            if symbol not in self.prices:
+            if contract.symbol not in self.prices:
                 # see binance documentation about the keys that are returned
-                self.prices[symbol] = {'bid': bid_data, 'ask': ask_data}
+                self.prices[contract.symbol] = {'bid': bid_data, 'ask': ask_data}
             else:
-                self.prices[symbol]['bid'] = bid_data
-                self.prices[symbol]['ask'] = ask_data
+                self.prices[contract.symbol]['bid'] = bid_data
+                self.prices[contract.symbol]['ask'] = ask_data
 
-        return self.prices[symbol]
+            return self.prices[contract.symbol]
 
-    def get_balances(self):
+    def get_balances(self) -> dict[str, Balance]:
         data = dict()
         data['timestamp'] = int(time.time()*1000)
         data['signature'] = self.generate_signature(data)
@@ -145,14 +155,15 @@ class BinanceFuturesClient:
 
         if account_data is not None:
             for a in account_data['assets']:
-                balances[a['asset']] = a
+                balances[a['asset']] = Balance(a)  #instead of just using "a" (dictionary object), we now turn it into a Balance object (specified in models.py)
+        # print('testing output: ', balances['USDT'].wallet_balance)
 
         return balances
 
-    def place_order(self, symbol, side, quantity, order_type, price=None, tif=None):
+    def place_order(self, contract: Contract, side: str, quantity: float, order_type: str, price=None, tif=None) -> OrderStatus:
         #endpoint info: https://binance-docs.github.io/apidocs/futures/en/#new-order-trade
         data = dict()
-        data['symbol'] = symbol
+        data['symbol'] = contract.symbol
         data['side'] = side   #could be BUY SELL
         data['quantity'] = quantity
         data['type'] = order_type  # LIMIT  or others
@@ -166,27 +177,32 @@ class BinanceFuturesClient:
         data['signature'] = self.generate_signature(data)
 
         order_status = self.make_request('POST', '/fapi/v1/order', data)
+        if order_status is not None:
+            order_status = OrderStatus(order_status)
 
         return order_status
 
-    def cancel_order(self, symbol, orderId):
+    def cancel_order(self, contract: Contract, orderId: int) -> OrderStatus:
         
         data = dict()
         data['orderId'] = orderId
-        data['symbol'] = symbol
+        data['symbol'] = contract.symbol
 
         data['timestamp'] = int(time.time()*1000)
         data['signature'] = self.generate_signature(data)
 
         order_status = self.make_request('DELETE', '/fapi/v1/order', data)
 
+        if order_status is not None:
+            order_status = OrderStatus(order_status)
+
         return order_status
 
-    def get_order_status(self, symbol, order_id):
+    def get_order_status(self, contract: Contract, order_id: int) -> OrderStatus:
 
         data = dict()
         data['timestamp'] = int(time.time() * 1000)
-        data['symbol'] = symbol
+        data['symbol'] = contract.symbol
         data['orderId'] = order_id
         data['signature'] = self.generate_signature(data)
 
@@ -210,10 +226,10 @@ class BinanceFuturesClient:
     def on_close(self):
         logger.warning("Binance websocket connection closed")
 
-    def on_error(self, msg):
+    def on_error(self, msg: str):
         logger.error(f"Binance connection error: {msg}")
 
-    def on_message(self, msg):
+    def on_message(self, msg: str):
         # print(msg)
         # example response is a dict:
         # {"e":"bookTicker","u":22437778066,"s":"BTCUSDT","b":"47229.85","B":"54.585","a":"47232.81","A":"65.202","T":1633092536099,"E":1633092536102}
@@ -237,15 +253,15 @@ class BinanceFuturesClient:
                     self.prices[symbol]['bid'] = bid_data
                     self.prices[symbol]['ask'] = ask_data
                 
-                print(self.prices[symbol])
+                # print(self.prices[symbol])
 
-    def subscribe_channel(self, symbol):
+    def subscribe_channel(self, contract: Contract):
         #https://binance-docs.github.io/apidocs/spot/en/#live-subscribing-unsubscribing-to-streams
         # expects a json object, i.e. in python we create a dict with expected parameters
         data = dict()
         data['method'] = "SUBSCRIBE"
         data['params'] = []
-        data['params'].append(symbol.lower() + "@bookTicker")  # e.g. channel "btcusdt@bookTicker" must be lowercase symbols
+        data['params'].append(contract.symbol.lower() + "@bookTicker")  # e.g. channel "btcusdt@bookTicker" must be lowercase symbols
         data['id'] = self.id
 
         # print(data, type(data))

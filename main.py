@@ -32,15 +32,19 @@ logger.addHandler(file_handler)
 
 if __name__ == '__main__':
 
-    apikeys = open('apikeys.txt')
-    lines=apikeys.readlines()
+    with open('apikeys.txt') as apikeys:
+        lines = apikeys.read().splitlines() 
     binance_public_key = lines[10]
     binance_secret_key = lines[12]
-    apikeys.close()
 
-    
+
     binance = BinanceFuturesClient(binance_public_key, binance_secret_key, True)
+
+    candles = binance.get_historical_candles()
+    candles[-1].
+
     # some testing calls NEWEST to oldest:
+    # Note: all test code below breaks after Lesson 15, when data format is changed with "models.py"
     # print(binance.cancel_order('BTCUSDT', 2827960728))
     # print(binance.get_order_status('BTCUSDT', 2827960728)) #ID was given by place_order call below
     # print(binance.place_order('BTCUSDT', 'BUY', 0.01, 'LIMIT', 20000, 'GTC'))
