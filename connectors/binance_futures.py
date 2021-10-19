@@ -75,6 +75,7 @@ class BinanceFuturesClient:
     def _generate_signature(self, data: dict) -> str: #check if generic dict works, maybe "typing.Dict" needed that allows more complex variables in it
         #encode() turns strings into byte-objects (as expected by hmac)
         return hmac.new(self._secret_key.encode(), urlencode(data).encode(), hashlib.sha256).hexdigest()
+        #to see what urlencode does: https://linuxhint.com/urlencode-python/
 
     def _make_request(self, method: str, endpoint: str, data: dict):
         if method == "GET":

@@ -3,6 +3,7 @@ import tkinter as tk
 import logging
 # from connectors.bitmex_futures import get_contracts
 from connectors.binance_futures import BinanceFuturesClient
+from connectors.bitmex_futures import BitmexFuturesClient
 
 # %%
 # logger setup
@@ -36,12 +37,10 @@ if __name__ == '__main__':
         lines = apikeys.read().splitlines() 
     binance_public_key = lines[10]
     binance_secret_key = lines[12]
+    bitmex_public_key = lines[4]
+    bitmex_secret_key = lines[6]
 
-
-    binance = BinanceFuturesClient(binance_public_key, binance_secret_key, True)
-
-    candles = binance.get_historical_candles()
-    candles[-1].
+    # binance = BinanceFuturesClient(binance_public_key, binance_secret_key, True)
 
     # some testing calls NEWEST to oldest:
     # Note: all test code below breaks after Lesson 15, when data format is changed with "models.py"
@@ -52,6 +51,11 @@ if __name__ == '__main__':
     # print(binance.get_contracts())
     # print(binance.get_bid_ask(('BTCUSDT')))
     # print(binance.get_historical_candles('BTCUSDT', '1h'))
+
+    bitmex = BitmexFuturesClient(bitmex_public_key, bitmex_secret_key, True)
+    print(bitmex.get_contracts())
+
+
 
     root = tk.Tk()  # main window of app
 

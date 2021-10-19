@@ -1,21 +1,91 @@
 #%%
 import logging
 import requests
-import pprint
+import time
+
+import hmac
+import hashlib
+import urllib.parse
+from urllib.parse import urlencode
+
+'''
+important links:
+https://testnet.bitmex.com/app/apiOverview
+https://www.bitmex.com/app/apiOverview
+to get started:
+interactive: https://www.bitmex.com/api/explorer/
+
+testnet account under my protonmail
+'''
 
 #%%
 # logger = logging.getLogger()
 
-def get_contracts():
-    response_object = requests.get('https://testnet.bitmex.com/api/v1/instrument/active')
-    print(response_object.status_code)
-    # pprint.pprint(response_object.json())
+class BitmexFuturesClient:
 
-    contracts = []
+    def __init__(self, public_key: str, secret_key: str, testnet: bool):
+        if testnet:
+            self._base_url = 'https://testnet.bitmex.com/api/v1'
+        else:
+            self._base_url = 'https://www.bitmex.com/api/v1'
 
-    for contract in response_object.json():
-        contracts.append(contract['symbol'])
+        self._public_key = public_key
+        self._secret_key = secret_key
 
-    return contracts
+        #unlike binance, more info like time and the signature are all included in the header:
+     
+    def _add_headers(self, method, endpoint, data) -> str:
+        '''
+        Way more complex than that of binance
+        https://testnet.bitmex.com/app/apiKeysUsage#full-sample-calculation
+        dict with several keys:
+        - time until request expires (I give it 5s)
+        - api-key
+        - api-signature  (included in header as opposed to binance)
 
-# print(get_contracts())
+        # For example:
+        #
+        # verb=POST
+        # url=/api/v1/order
+        # expires=1518064237
+        # data={"symbol":"XBTUSD","quantity":1,"price":52000.50}
+        # message='POST/api/v1/order1518064237{"symbol":"XBTUSD","quantity":1,"price":52000.50}'
+        # signature = HEX(HMAC_SHA256(secret, message))
+
+        '''
+        headers = {}
+        expires = str(int(round((time.time() + 5)))) #from time object to int to str
+        headers['api-expires'] = expires # not calling function to ensure its same as in url
+        headers['api-key'] = self._public_key
+
+        # SIGNATURE
+        # doc says 'calculated as hex(HMAC_SHA256(apiSecret, verb + path + expires + data))'
+
+        path = urllib.parse.urlparse(self._base_url).path # removes base, to get e.g. "/api/v1"
+        message = bytes(method + path + endpoint + expires + urlencode(data), 'utf-8')
+        signature = hmac.new(self._secret_key.encode(), message, digestmod=hashlib.sha256).hexdigest()
+    
+        headers['api-signature'] = signature
+        # print('header:', headers)
+        return headers
+
+
+
+    def _make_requests(self, method: str, endpoint: str, data: dict):
+        if method == 'GET':
+            response = requests.get(self._base_url + endpoint, params=data,
+             headers=self._add_headers(method, endpoint, data))
+        
+        return response.json()
+
+
+    def get_contracts(self):
+        # https://www.bitmex.com/api/explorer/#/Instrument has to realize they call contracts "instruments"
+        exchange_info = self._make_requests('GET', '/instrument/active', dict())
+        # print(exchange_info)
+        contracts = []
+        for contract in exchange_info:
+            contracts.append(contract['symbol'])
+        return contracts
+
+
