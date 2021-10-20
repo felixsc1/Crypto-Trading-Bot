@@ -52,6 +52,8 @@ class BitmexFuturesClient:
         # message='POST/api/v1/order1518064237{"symbol":"XBTUSD","quantity":1,"price":52000.50}'
         # signature = HEX(HMAC_SHA256(secret, message))
 
+        Biggest Confusion was: "data" part (aka. body) of requests is never used here. Instead all our 'data' is
+        part of the URL, added after '?'.
         '''
         headers = {}
         expires = str(int(round((time.time() + 5)))) #from time object to int to str
@@ -62,11 +64,15 @@ class BitmexFuturesClient:
         # doc says 'calculated as hex(HMAC_SHA256(apiSecret, verb + path + expires + data))'
 
         path = urllib.parse.urlparse(self._base_url).path # removes base, to get e.g. "/api/v1"
-        message = bytes(method + path + endpoint + expires + urlencode(data), 'utf-8')
+        if len(data) > 0:
+            message = bytes(method + path + endpoint + '?' + urlencode(data) + expires, 'utf-8')
+        else:
+            message = bytes(method + path + endpoint + expires, 'utf-8')
+
         signature = hmac.new(self._secret_key.encode(), message, digestmod=hashlib.sha256).hexdigest()
     
         headers['api-signature'] = signature
-        # print('header:', headers)
+        print('header:', headers)
         return headers
 
 
@@ -74,6 +80,9 @@ class BitmexFuturesClient:
     def _make_requests(self, method: str, endpoint: str, data: dict):
         if method == 'GET':
             response = requests.get(self._base_url + endpoint, params=data,
+             headers=self._add_headers(method, endpoint, data))
+        elif method == 'POST':
+            response = requests.post(self._base_url + endpoint, params=data,
              headers=self._add_headers(method, endpoint, data))
         
         return response.json()
@@ -89,3 +98,13 @@ class BitmexFuturesClient:
         return contracts
 
 
+    def place_order(self, symbol, side, orderQty, price):
+        data = dict()
+        data['symbol'] = symbol
+        data['side'] = side #default is buy
+        data['ordType'] = 'Limit'
+        data['orderQty'] = orderQty
+        data['price'] = price
+
+        order_status = self._make_requests('POST', '/order', data)
+        return order_status

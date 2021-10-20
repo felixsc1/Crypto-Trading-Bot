@@ -53,7 +53,8 @@ if __name__ == '__main__':
     # print(binance.get_historical_candles('BTCUSDT', '1h'))
 
     bitmex = BitmexFuturesClient(bitmex_public_key, bitmex_secret_key, True)
-    print(bitmex.get_contracts())
+    # print(bitmex.place_order('ETHUSD', 'Buy', 10, 100))
+    # print(bitmex.get_contracts())
 
 
 
