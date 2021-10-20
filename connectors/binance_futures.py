@@ -133,7 +133,7 @@ class BinanceFuturesClient:
                 # one sees example response: a list of values open time, open, high, low, close, volume
                 # candles.append([c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])])
                 # replaced in Lesson 15:
-                candles.append(Candle(c))
+                candles.append(Candle(c, 'binance'))
     
         return candles
     
@@ -192,7 +192,7 @@ class BinanceFuturesClient:
 
         order_status = self._make_request('POST', '/fapi/v1/order', data)
         if order_status is not None:
-            order_status = OrderStatus(order_status)
+            order_status = OrderStatus(order_status, 'binance')
 
         return order_status
 
@@ -208,7 +208,7 @@ class BinanceFuturesClient:
         order_status = self._make_request('DELETE', '/fapi/v1/order', data)
 
         if order_status is not None:
-            order_status = OrderStatus(order_status)
+            order_status = OrderStatus(order_status, 'binance')
 
         return order_status
 

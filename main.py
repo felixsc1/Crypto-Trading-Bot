@@ -52,11 +52,14 @@ if __name__ == '__main__':
     # print(binance.get_bid_ask(('BTCUSDT')))
     # print(binance.get_historical_candles('BTCUSDT', '1h'))
 
+    # ================================================================
+
     bitmex = BitmexFuturesClient(bitmex_public_key, bitmex_secret_key, True)
     # print(bitmex.place_order('ETHUSD', 'Buy', 10, 100))
-    # print(bitmex.get_contracts())
-
-
+    # printing out Balance/Contract objects doesnt work, but we can try accessing some contents to test:
+    # print(bitmex.contracts['XBTUSD'].base_asset, bitmex.contracts['XBTUSD'].price_decimals)
+    # print(bitmex.balances['XBt'].wallet_balance)  #Bt : because bitmex returns satoshis 
+    print(bitmex.place_order(bitmex.contracts['XBTUSD'], 'Limit', 1000, 'Buy', price=20000, tif='GoodTillCancel'))
 
     root = tk.Tk()  # main window of app
 
