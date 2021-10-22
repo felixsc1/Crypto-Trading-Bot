@@ -59,7 +59,10 @@ if __name__ == '__main__':
     # printing out Balance/Contract objects doesnt work, but we can try accessing some contents to test:
     # print(bitmex.contracts['XBTUSD'].base_asset, bitmex.contracts['XBTUSD'].price_decimals)
     # print(bitmex.balances['XBt'].wallet_balance)  #Bt : because bitmex returns satoshis 
-    print(bitmex.place_order(bitmex.contracts['XBTUSD'], 'Limit', 1000, 'Buy', price=20000, tif='GoodTillCancel'))
+    print(bitmex.place_order(bitmex.contracts['XBTUSD'], 'Limit', 100.4, 'Buy', price=20000.343432, tif='GoodTillCancel'))
+    # print(bitmex.get_order_status('cd749f22-077a-4f8e-99e0-c6571628621a', bitmex.contracts['XBTUSD']))  #its ok if it returns an "models.Orderstatus object without error"
+    # print(bitmex.cancel_order('cd749f22-077a-4f8e-99e0-c6571628621a').status) 
+    # bitmex.get_historical_candles(bitmex.contracts['XBTUSD'], '1h')
 
     root = tk.Tk()  # main window of app
 

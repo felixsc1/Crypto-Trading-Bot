@@ -133,7 +133,7 @@ class BinanceFuturesClient:
                 # one sees example response: a list of values open time, open, high, low, close, volume
                 # candles.append([c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])])
                 # replaced in Lesson 15:
-                candles.append(Candle(c, 'binance'))
+                candles.append(Candle(c, interval, 'binance'))
     
         return candles
     
@@ -179,11 +179,11 @@ class BinanceFuturesClient:
         data = dict()
         data['symbol'] = contract.symbol
         data['side'] = side   #could be BUY SELL
-        data['quantity'] = quantity
+        data['quantity'] = round(quantity / contract.lot_size) * contract.lot_size #order quant is integer, last round not needed
         data['type'] = order_type  # LIMIT  or others
 
         if price is not None:
-            data['price'] = price
+            data['price'] = round(round(price / contract.tick_size) * contract.tick_size, 8)
         if tif is not None:
             data['timeInForce'] = tif
 
@@ -237,6 +237,7 @@ class BinanceFuturesClient:
             except Exception as e:
                 logger.error("Binance error in run_forever() method: {e}")
             time.sleep(2) # if connection cannot be restarted immediately, prevents continuously trying
+    
     # below functions that are called "callback functions"
     def _on_open(self):  #some versions may need "ws" as input argument here
         logger.info("Binance connection opened")
